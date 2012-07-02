@@ -3,6 +3,8 @@ require 'koala/http_service/multipart_request'
 require 'koala/http_service/uploadable_io'
 require 'koala/http_service/response'
 
+class NilReceived < ::StandardError; end
+
 module Koala
   module HTTPService
     class << self
@@ -78,7 +80,9 @@ module Koala
       response = conn.send(verb, path, (verb == "post" ? params : {}))
 
       # Log URL information
-      Koala::Utils.debug "#{verb.upcase}: #{path} params: #{params.inspect}"
+      msg = "#{verb.upcase}: #{path} params: #{params.inspect}"
+      raise(NilReceived, msg) if response.nil?
+      Koala::Utils.debug msg
       Koala::HTTPService::Response.new(response.status.to_i, response.body, response.headers)
     end
 
