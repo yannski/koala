@@ -73,15 +73,26 @@ module Koala
         ssl[:verify] = true unless ssl.has_key?(:verify)
       end
 
-      # set up our Faraday connection
-      # we have to manually assign params to the URL or the
-      conn = Faraday.new(server(request_options), request_options, &(faraday_middleware || DEFAULT_MIDDLEWARE))
+      retries = 0
+      begin
+        # set up our Faraday connection
+        # we have to manually assign params to the URL or the
+        conn = Faraday.new(server(request_options), request_options, &(faraday_middleware || DEFAULT_MIDDLEWARE))
 
-      response = conn.send(verb, path, (verb == "post" ? params : {}))
+        response = conn.send(verb, path, (verb == "post" ? params : {}))
+
+        raise NilReceived if response.nil?
+      rescue NilReceived
+        if (retries += 1) > 5
+          msg = "#{verb.upcase}: #{path} params: #{params.inspect}"
+          raise(NilReceived, msg) if response.nil?
+        else
+          sleep 1
+          retry
+        end
+      end
 
       # Log URL information
-      msg = "#{verb.upcase}: #{path} params: #{params.inspect}"
-      raise(NilReceived, msg) if response.nil?
       Koala::Utils.debug msg
       Koala::HTTPService::Response.new(response.status.to_i, response.body, response.headers)
     end
